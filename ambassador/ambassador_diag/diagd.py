@@ -34,7 +34,7 @@ from pkg_resources import Requirement, resource_filename
 
 import clize
 from clize import Parameter
-from flask import Flask, render_template, send_from_directory, request, jsonify
+from flask import Flask, render_template, send_from_directory, request, jsonify, Response
 import gunicorn.app.base
 from gunicorn.six import iteritems
 
@@ -192,7 +192,9 @@ def standard_handler(f):
 
         try:
             result = f(*args, reqid=reqid, **kwds)
-            if not isinstance(result, tuple):
+            if result is None:
+                result = (result, 503)
+            elif isinstance(result, Response):
                 result = (result, 200)
 
             status_to_log = result[1]
@@ -474,7 +476,7 @@ def show_overview(reqid=None):
         else:
             return jsonify(tvars)
     else:
-        return render_template("overview.html", **tvars)
+        return Response(render_template("overview.html", **tvars))
 
 
 def collect_errors_and_notices(request, reqid, what: str, diag: Diagnostics) -> Dict:
@@ -553,12 +555,11 @@ def show_intermediate(source=None, reqid=None):
         key = request.args.get('filter', None)
 
         if key:
-            return jsonify(tvars.get(key, None))
+            return Response(jsonify(tvars.get(key, None)))
         else:
-            return jsonify(tvars)
+            return Response(jsonify(tvars))
     else:
-        return render_template("diag.html", **tvars)
-
+        return Response(render_template("diag.html", **tvars))
 
 @app.template_filter('sort_by_key')
 def sort_by_key(objects):
